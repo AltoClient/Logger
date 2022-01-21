@@ -1,1 +1,3 @@
-logger
+# Logger
+
+A minimal logger implementation 
