@@ -10,8 +10,9 @@ package com.jacobtread.mck.logger
  * @constructor Create empty Level
  */
 enum class Level(val levelName: String, val index: Byte) {
-    INFO("INFO", 3),
-    WARN("WARN", 2),
+    INFO("INFO", 4),
+    WARN("WARN", 3),
+    ERROR("WARN", 2),
     FATAL("FATAL", 1),
-    DEBUG("DEBUG", 4)
+    DEBUG("DEBUG", 5)
 }

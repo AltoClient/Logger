@@ -17,10 +17,12 @@ class Logger {
         private val ROOT = Logger()
         const val DEFAULT_BUFFER_SIZE = 256 * 1024
 
+        @JvmStatic
         fun setLogLevel(level: Level) {
             ROOT.logLevel = level
         }
 
+        @JvmStatic
         fun get(): Logger {
             return ROOT
         }
@@ -31,11 +33,20 @@ class Logger {
     private val logFile: Path = loggingPath.resolve("latest.log")
     private val file: RandomAccessFile
     private val outputBuffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
-    var logLevel: Level = Level.INFO
+    private var logLevel: Level = Level.INFO
+
+    /**
+     * isDebugEnabled Checks whether the current
+     * logging level is debug logging
+     *
+     * @return
+     */
+    val isDebugEnabled: Boolean get() = logLevel == Level.DEBUG
+
 
     init {
-        archiveOld()
         try {
+            archiveOld()
             file = createFile()
         } catch (e: IOException) {
             System.err.println("Failed to open RandomAccessFile to the logging path")
@@ -45,24 +56,28 @@ class Logger {
     }
 
     @JvmOverloads
-    fun info(text: String, throwable: Throwable? = null) = append(Level.INFO, text, throwable)
+    fun info(text: String, vararg args: Any? = emptyArray()) = append(Level.INFO, text, *args)
 
     @JvmOverloads
-    fun warn(text: String, throwable: Throwable? = null) = append(Level.WARN, text, throwable)
+    fun warn(text: String, vararg args: Any? = emptyArray()) = append(Level.WARN, text, *args)
 
     @JvmOverloads
-    fun fatal(text: String, throwable: Throwable? = null) = append(Level.FATAL, text, throwable)
+    fun fatal(text: String, vararg args: Any? = emptyArray()) = append(Level.FATAL, text, *args)
 
     @JvmOverloads
-    fun debug(text: String, throwable: Throwable? = null) = append(Level.DEBUG, text, throwable)
+    fun debug(text: String, vararg args: Any? = emptyArray()) = append(Level.DEBUG, text, *args)
 
     @JvmOverloads
-    fun log(level: Level, text: String, throwable: Throwable? = null) = append(level, text, throwable)
+    fun error(text: String, vararg args: Any? = emptyArray()) = append(Level.ERROR, text, *args)
+
+    @JvmOverloads
+    fun log(level: Level, text: String, vararg args: Any? = emptyArray()) = append(level, text, *args)
 
     /**
      * close Called when the application is closing. Flushes
      * the contents of the buffer and closes the [file]
      */
+    @Synchronized
     private fun close() {
         try {
             flush()
@@ -75,6 +90,7 @@ class Logger {
      * flush Flushes the contents of the [outputBuffer] to
      * the file and clears the buffer
      */
+    @Synchronized
     private fun flush() {
         outputBuffer.flip()
         try {
@@ -93,16 +109,58 @@ class Logger {
      *
      * @param level The level of the log
      * @param message The message of the log
-     * @param throwable An optional exception passed to the log
+     * @param args Arguments to be placed into it
      */
-    private fun append(level: Level, message: String, throwable: Throwable?) {
+    private fun append(level: Level, message: String, vararg args: Any?) {
         if (level.index > logLevel.index) return
         val time = printDateFormat.format(Date())
         val threadName = Thread.currentThread().name
-        val text = "[$time] [$threadName/${level.levelName}] $message"
-        write(text)
-        if (throwable != null) {
-            write(throwable.stackTraceToString())
+        val hasArgs = args.isNotEmpty()
+        if (!hasArgs || args[0] is Throwable) {
+            val text = "[$time] [$threadName/${level.levelName}] $message"
+            write(text)
+            if (hasArgs) {
+                write((args[0] as Throwable).stackTraceToString())
+            }
+        } else {
+            var exceptions: ArrayList<Throwable>? = null
+            val builder = StringBuilder()
+            var i = 0
+            var last = 0
+            while (true) {
+                val index = message.indexOf("{}", last)
+                if (index < 0) break
+                check(i < args.size) { "Incorrect number of arguments provided" }
+                builder.append(message.substring(last, index))
+                var arg = args[i]
+                while (arg is Throwable) {
+                    i++
+                    if (exceptions == null) {
+                        exceptions = ArrayList()
+                    }
+                    exceptions.add(arg)
+                    if (i < args.size) {
+                        arg = args[i]
+                    } else {
+                        arg = null
+                        break
+                    }
+                }
+                if (arg == null) {
+                    builder.append("null")
+                } else {
+                    builder.append(arg.toString())
+                }
+                last = index + 2
+            }
+            if (last < message.length) {
+                builder.append(message.substring(last))
+            }
+            val text = "[$time] [$threadName/${level.levelName}] $builder"
+            write(text)
+            exceptions?.forEach {
+                write(it.stackTraceToString())
+            }
         }
     }
 
@@ -116,8 +174,10 @@ class Logger {
     private fun write(text: String) {
         val bytes = text.toByteArray()
         if (bytes.size > outputBuffer.remaining()) {
-            flush()
-            file.write(bytes)
+            synchronized(file) {
+                flush()
+                file.write(bytes)
+            }
         } else {
             outputBuffer.put(bytes)
         }
@@ -128,6 +188,7 @@ class Logger {
      * createFile Creates a new logging file and
      * opens a random access file to that path
      */
+    @Synchronized
     private fun createFile(): RandomAccessFile {
         if (!logFile.exists()) logFile.createFile()
         val randomAccess = RandomAccessFile(logFile.toFile(), "rw")
@@ -141,6 +202,7 @@ class Logger {
      * logs/{yyyy-MM-dd}-{i}.log.gz this is stored using the
      * gzip file format.
      */
+    @Synchronized
     private fun archiveOld() {
         if (logFile.isRegularFile()) {
             val lastModified = logFile.getLastModifiedTime().toMillis()
@@ -156,6 +218,7 @@ class Logger {
                 }
                 file = path
             }
+
             logFile.inputStream().use { input ->
                 GZIPOutputStream(BufferedOutputStream(file.outputStream(StandardOpenOption.CREATE))).use { output ->
                     var read: Int
@@ -167,7 +230,7 @@ class Logger {
                     }
                 }
             }
-            logFile.deleteIfExists()
+            logFile.deleteExisting()
         }
     }
 }
