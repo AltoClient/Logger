@@ -15,7 +15,7 @@ import kotlin.io.path.*
 class Logger {
     companion object {
         private val ROOT = Logger()
-        const val DEFAULT_BUFFER_SIZE = 256 * 1024
+        const val DEFAULT_BUFFER_SIZE = 4024
 
         @JvmStatic
         fun setLogLevel(level: Level) {
