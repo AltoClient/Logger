@@ -117,10 +117,17 @@ class Logger {
         val threadName = Thread.currentThread().name
         val hasArgs = args.isNotEmpty()
         if (!hasArgs || args[0] is Throwable) {
-            val text = "[$time] [$threadName/${level.levelName}] $message"
+            val text = "[$time] [$threadName/${level.levelName}] $message\n"
+            if (level.index < 3) {
+                System.err.print(text)
+            } else {
+                print(text)
+            }
             write(text)
             if (hasArgs) {
-                write((args[0] as Throwable).stackTraceToString())
+                val throwable = args[0] as Throwable
+                throwable.printStackTrace()
+                write(throwable.stackTraceToString() + '\n')
             }
         } else {
             var exceptions: ArrayList<Throwable>? = null
@@ -156,10 +163,16 @@ class Logger {
             if (last < message.length) {
                 builder.append(message.substring(last))
             }
-            val text = "[$time] [$threadName/${level.levelName}] $builder"
+            val text = "[$time] [$threadName/${level.levelName}] $builder\n"
+            if (level.index < 3) {
+                System.err.print(text)
+            } else {
+                print(text)
+            }
             write(text)
             exceptions?.forEach {
-                write(it.stackTraceToString())
+                it.printStackTrace()
+                write(it.stackTraceToString() + '\n')
             }
         }
     }

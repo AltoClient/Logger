@@ -12,7 +12,7 @@ package com.jacobtread.mck.logger
 enum class Level(val levelName: String, val index: Byte) {
     INFO("INFO", 4),
     WARN("WARN", 3),
-    ERROR("WARN", 2),
+    ERROR("ERROR", 2),
     FATAL("FATAL", 1),
     DEBUG("DEBUG", 5)
 }
