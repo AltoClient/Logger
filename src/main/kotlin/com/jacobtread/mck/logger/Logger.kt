@@ -203,6 +203,8 @@ class Logger {
      */
     @Synchronized
     private fun createFile(): RandomAccessFile {
+        val parent = logFile.parent
+        if(!parent.exists()) parent.createDirectories()
         if (!logFile.exists()) logFile.createFile()
         val randomAccess = RandomAccessFile(logFile.toFile(), "rw")
         val length = randomAccess.length()
