@@ -1,4 +1,4 @@
-package com.jacobtread.mck.logger
+package com.jacobtread.alto.logger
 
 import java.io.BufferedOutputStream
 import java.io.IOException

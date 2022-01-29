@@ -1,4 +1,4 @@
-package com.jacobtread.mck.logger
+package com.jacobtread.alto.logger
 
 /**
  * Level Represents a level of logging. Setting the loggers
